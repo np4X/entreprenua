@@ -2,6 +2,11 @@
 waste.db
 static/uploads/
 static/qrcodes/
+drive_backend/waste.db
+
+# Google service account keys must never be committed
+*service-account*.json
+*credentials*.json
 
 # Python
 __pycache__/
