@@ -55,14 +55,11 @@ A static, click-through demo of just the resident-facing screens is in
 server, no real database, no real machine involved. It's meant purely to
 show the flow to someone without them installing Python.
 
-**Live at:** https://np4x.github.io/entreprenua/ (enable once, see below)
+**Live at:** https://np4x.github.io/entreprenua/docs/
 
-To turn this on for the repo (one-time setup):
-1. Go to the repo's **Settings → Pages**.
-2. Under "Build and deployment", set **Source: Deploy from a branch**.
-3. Set **Branch: `main`**, folder **`/docs`**, then Save.
-4. GitHub publishes it at `https://<username>.github.io/<repo>/` within a
-   minute or two.
+(Pages is configured to deploy from the repo root rather than `/docs`, which
+is why `/docs/` is part of the URL — that also means the root URL,
+https://np4x.github.io/entreprenua/, just shows this README instead.)
 
 The demo re-implements the same category/points rules as `db.py`, but all
 state lives only in your browser tab (refresh = reset) — it does not talk
