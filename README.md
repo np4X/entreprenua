@@ -23,22 +23,11 @@ the two physical devices involved:
 Both processes read/write the same `waste.db` SQLite file directly — no
 network calls between them are needed since they normally run on the same PC.
 
-## Quick start (Windows)
-
-1. Install [Python 3.10+](https://www.python.org/downloads/) if you don't have it.
-2. Double-click **`run_machine.bat`** — installs dependencies and starts the
-   machine/kiosk app on port 5069.
-3. Double-click **`run_client.bat`** — starts the phone-facing app on port
-   5067 and auto-detects your PC's LAN IPv4 so you can open it from your
-   phone on the same Wi-Fi.
-4. On your phone, open the URL it prints (e.g. `http://<your-PC-LAN-IP>:5067/`).
-
-> If your phone can't reach the app, see [Troubleshooting](#troubleshooting)
-> below — this is almost always a network/firewall issue, not the app.
-
-### Manual run (any OS)
+## Setup
 
 ```bash
+git clone https://github.com/np4X/entreprenua.git
+cd entreprenua
 pip install -r requirements.txt
 python machine_app.py   # in one terminal
 python client_app.py    # in another terminal
@@ -98,15 +87,3 @@ to `client_app.py` / `machine_app.py` at all.
   stand-in for a real image-classification model.
 - `smoke_test.py` drives both apps together end-to-end against a scratch
   database — run it after making changes: `python smoke_test.py`.
-
-## Troubleshooting
-
-**Phone can't reach the app:**
-1. Make sure both devices are on the *same* Wi-Fi network.
-2. Windows Firewall may block inbound connections the first time — allow
-   Python/the ports (5067, 5069) when prompted, or add a rule manually.
-3. Some networks (especially campus/public/guest Wi-Fi) enable **client
-   isolation**, which blocks devices from reaching each other even on the
-   same network — no app or firewall setting can fix this. Workaround: turn
-   on your phone's personal hotspot and connect your PC to it instead, or
-   use a personal travel router.
