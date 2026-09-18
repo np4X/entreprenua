@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>แยกขยะได้แต้ม — Demo</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://pyscript.net/releases/2024.11.1/core.css">
+<script type="module" src="https://pyscript.net/releases/2024.11.1/core.js"></script>
+</head>
+<body>
+
+<div id="loading">
+  <p>⏳ กำลังโหลด Python runtime ในเบราว์เซอร์ (ครั้งแรกอาจใช้เวลาสักครู่)...</p>
+</div>
+
+<div class="phone hidden" id="app">
+  <div class="statusbar">
+    <span>9:41</span>
+    <span id="statusbar-right">อาคาร A · ชั้น 12</span>
+  </div>
+
+  <!-- Screen 1: Home -->
+  <div class="screen" id="screen-home">
+    <h1 class="page-title">สวัสดี คุณนพัตร 👋</h1>
+    <div class="card">
+      <div class="label">แต้มสะสมของคุณ</div>
+      <div class="points-row">
+        <div class="points-value"><span id="points-display">1,240</span> <span class="unit">แต้ม</span></div>
+        <div class="emoji">🎁</div>
+      </div>
+    </div>
+    <div class="card last-activity">
+      <div class="label">ครั้งล่าสุดที่ทิ้งขยะ</div>
+      <div class="headline" id="last-activity-text">ยังไม่มีประวัติการทิ้งขยะ</div>
+    </div>
+    <button class="btn" py-click="start_bag">🗑️ ทิ้งขยะตอนนี้</button>
+  </div>
+
+  <!-- Screen 2: Attach QR -->
+  <div class="screen hidden" id="screen-attach">
+    <h1 class="page-title">QR พร้อมแล้ว — แปะที่ถุง</h1>
+    <div class="qr-box">▦</div>
+    <div class="code-line">รหัสถุง: <b id="bag-code-display">-</b> · ใช้ได้ครั้งเดียว</div>
+    <div class="hint-card">🏷️ ดึงสติกเกอร์ QR จากเครื่อง แล้วแปะติดถุงขยะของคุณ ถุงสีอะไรก็ได้</div>
+    <button class="btn" py-click="go_to_scan">แปะเสร็จแล้ว ถัดไป</button>
+  </div>
+
+  <!-- Screen 3: Scan + category -->
+  <div class="screen hidden" id="screen-scan">
+    <h1 class="page-title">สแกน QR บนถุงของคุณ</h1>
+    <div class="qr-box" style="font-size:50px;">▦</div>
+    <div id="scan-status" class="hint-card hidden"></div>
+    <button class="btn btn-outline" py-click="simulate_scan" id="scan-btn">จำลองสแกน</button>
+    <div class="category-grid" id="category-grid" style="opacity:0.4; pointer-events:none;">
+      <div class="category-btn" data-cat="food" py-click="pick_category">
+        <div class="dot"></div>เศษอาหาร
+      </div>
+      <div class="category-btn" data-cat="recycle" py-click="pick_category">
+        <div class="dot"></div>รีไซเคิล
+      </div>
+      <div class="category-btn" data-cat="general" py-click="pick_category">
+        <div class="dot"></div>ทั่วไป
+      </div>
+    </div>
+    <button class="btn" py-click="go_to_photo" id="continue-to-photo-btn" disabled>ยืนยันประเภทขยะ</button>
+  </div>
+
+  <!-- Screen 4: Photo + note -->
+  <div class="screen hidden" id="screen-photo">
+    <h1 class="page-title">ถ่ายรูปขยะในถุง</h1>
+    <div class="card" id="photo-category-card" style="display:flex; align-items:center; gap:10px;">
+      <div style="width:14px;height:14px;border-radius:50%;background:var(--green);"></div>
+      <div>
+        <div style="font-weight:600;" id="photo-category-label">-</div>
+        <div style="font-size:12px;color:var(--text-muted);">ต้องถ่ายรูปก่อนทิ้งทุกครั้ง</div>
+      </div>
+    </div>
+    <div class="camera-box" id="camera-box">
+      <img id="photo-preview" class="hidden">
+      <div id="photo-placeholder">
+        <div style="font-size:34px;">📷</div>
+        <div>แตะเพื่อถ่าย/เลือกรูปขยะในถุง (บังคับ)</div>
+      </div>
+    </div>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;">
+    <button class="btn btn-outline" id="photo-pick-btn">เปิดกล้อง / เลือกรูป</button>
+    <textarea class="note-input" id="note-input"
+      placeholder="รายละเอียดเพิ่มเติม (ถ้ามี) เช่น แยกถุงพลาสติก/กระดาษ ล้างสะอาดแล้ว — ยิ่งละเอียด ยิ่งได้แต้มเพิ่ม"></textarea>
+    <button class="btn" py-click="submit_photo" id="submit-photo-btn" disabled>ยืนยันและส่งตรวจ</button>
+  </div>
+
+  <!-- Screen 5: Bin opener -->
+  <div class="screen hidden" id="screen-bin">
+    <h1 class="page-title">ฝาเปิดแล้ว โปรดทิ้งถุง</h1>
+    <div class="bin-illustration"><span>🗑️</span><span>⬆️</span></div>
+    <div class="card" style="text-align:center;">
+      <div style="font-weight:700; font-size:16px; margin-bottom:4px;">เครื่องเปิดฝาให้แล้ว</div>
+      <div style="font-size:13px; color:var(--text-muted);" id="bin-code-text">ใส่ถุงลงในช่องที่เปิดอยู่</div>
+    </div>
+    <div class="hint-card">ฝาจะปิดเองภายใน 10 วินาทีหลังตรวจพบว่าใส่ถุงแล้ว</div>
+    <button class="btn" py-click="throw_done">ทิ้งเสร็จแล้ว</button>
+  </div>
+
+  <!-- Screen 6: Verify + points -->
+  <div class="screen hidden" id="screen-verify">
+    <h1 class="page-title">กำลังตรวจสอบถุงของคุณ</h1>
+    <div class="card">
+      <div class="status-row">
+        <div class="icon-badge" id="ai-icon">✓</div>
+        <div>
+          <div class="title">AI ตรวจรูปเบื้องต้น</div>
+          <div class="desc" id="ai-desc">ตรงกับประเภทที่เลือกไว้</div>
+        </div>
+      </div>
+      <div class="status-row">
+        <div class="icon-badge" id="staff-icon">✓</div>
+        <div>
+          <div class="title" id="staff-title">พนักงานเก็บขยะยืนยันแล้ว</div>
+          <div class="desc" id="staff-desc">ตรวจสอบผ่าน</div>
+        </div>
+      </div>
+    </div>
+    <div class="card points-earn">
+      <div class="amount" id="points-earned-text">+0 แต้ม</div>
+      <div class="note">แยกถูกประเภท ได้แต้มเต็ม · แยกผิดจะได้แต้มน้อยลงหรือถูกหักแต้ม</div>
+    </div>
+    <button class="btn btn-gold" py-click="go_to_rewards">🏆 ดูแต้มสะสมทั้งหมด</button>
+  </div>
+
+  <!-- Screen 7: Rewards -->
+  <div class="screen hidden" id="screen-rewards">
+    <h1 class="page-title">แต้มสะสมของคุณ</h1>
+    <div class="card" style="text-align:center;">
+      <div class="points-value" style="justify-content:center;">
+        <span id="rewards-points-display">0</span> <span class="unit">แต้ม</span>
+      </div>
+    </div>
+    <div class="card" id="rewards-list">
+      <div class="reward-row">
+        <div style="flex:1;">
+          <div class="rname">Reward: บัตรกำนัลร้านกาแฟในตึก</div>
+          <div class="rdesc">แลกได้ทันที ใช้ได้ 30 วัน</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="rcost">500 แต้ม</div>
+          <button class="btn btn-outline" style="padding:6px 10px; font-size:12px; margin-top:6px; margin-bottom:0;"
+            py-click="redeem_click" data-cost="500" data-name="บัตรกำนัลร้านกาแฟในตึก" id="redeem-0">แลก</button>
+        </div>
+      </div>
+      <div class="reward-row">
+        <div style="flex:1;">
+          <div class="rname">Reward: ส่วนลดค่าส่วนกลาง 200 บาท</div>
+          <div class="rdesc">ตัดยอดในบิลเดือนถัดไป</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="rcost">1,000 แต้ม</div>
+          <button class="btn btn-outline" style="padding:6px 10px; font-size:12px; margin-top:6px; margin-bottom:0;"
+            py-click="redeem_click" data-cost="1000" data-name="ส่วนลดค่าส่วนกลาง 200 บาท" id="redeem-1">แลก</button>
+        </div>
+      </div>
+      <div class="reward-row">
+        <div style="flex:1;">
+          <div class="rname">Reward: Grab ส่วนลดค่าส่ง 50 บาท</div>
+          <div class="rdesc">ใช้ได้ภายใน 14 วัน</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="rcost">300 แต้ม</div>
+          <button class="btn btn-outline" style="padding:6px 10px; font-size:12px; margin-top:6px; margin-bottom:0;"
+            py-click="redeem_click" data-cost="300" data-name="Grab ส่วนลดค่าส่ง 50 บาท" id="redeem-2">แลก</button>
+        </div>
+      </div>
+      <div class="reward-row">
+        <div style="flex:1;">
+          <div class="rname">Reward: Shopee โค้ดส่วนลด 100 บาท</div>
+          <div class="rdesc">ขั้นต่ำการสั่งซื้อ 300 บาท</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="rcost">700 แต้ม</div>
+          <button class="btn btn-outline" style="padding:6px 10px; font-size:12px; margin-top:6px; margin-bottom:0;"
+            py-click="redeem_click" data-cost="700" data-name="Shopee โค้ดส่วนลด 100 บาท" id="redeem-3">แลก</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-outline" py-click="go_home">กลับหน้าแรก</button>
+  </div>
+</div>
+
+<p class="note">
+  Demo ล้วน ๆ ที่รันในเบราว์เซอร์ของคุณเอง (Python ผ่าน PyScript/WebAssembly) —
+  ไม่มีเซิร์ฟเวอร์ ไม่มีฐานข้อมูลจริง ไม่มีเครื่องคัดแยกขยะจริงเชื่อมต่ออยู่ —
+  ใช้แสดงลำดับหน้าจอ (flow) เท่านั้น. ระบบที่ทำงานจริง (client + machine + staff review)
+  อยู่ใน repo นี้ (client_app.py / machine_app.py) และต้องรันด้วย Python บนเครื่อง.
+</p>
+
+<script>
+  // Plain JS glue for the photo picker (file input -> preview).
+  // Kept outside Python since it's just a DOM/file-reading detail.
+  document.addEventListener('DOMContentLoaded', function () {
+    var pickBtn = document.getElementById('photo-pick-btn');
+    var fileInput = document.getElementById('photo-input');
+    var preview = document.getElementById('photo-preview');
+    var placeholder = document.getElementById('photo-placeholder');
+    var submitBtn = document.getElementById('submit-photo-btn');
+
+    pickBtn.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () {
+      var file = fileInput.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        preview.src = reader.result;
+        preview.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        submitBtn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+</script>
+
+<script type="py" src="app.py" config='{"files": {}}'></script>
+</body>
+</html>

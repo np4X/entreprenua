@@ -47,6 +47,27 @@ python client_app.py    # in another terminal
 Both apps read `APP_HOST` / `APP_PORT` environment variables if you want to
 override the defaults (`0.0.0.0:5069` and `0.0.0.0:5067`).
 
+## Live click-through demo (GitHub Pages)
+
+A static, click-through demo of just the resident-facing screens is in
+`docs/` and runs entirely in the browser via
+[PyScript](https://pyscript.net/) (Python compiled to WebAssembly) — no
+server, no real database, no real machine involved. It's meant purely to
+show the flow to someone without them installing Python.
+
+**Live at:** https://np4x.github.io/entreprenua/ (enable once, see below)
+
+To turn this on for the repo (one-time setup):
+1. Go to the repo's **Settings → Pages**.
+2. Under "Build and deployment", set **Source: Deploy from a branch**.
+3. Set **Branch: `main`**, folder **`/docs`**, then Save.
+4. GitHub publishes it at `https://<username>.github.io/<repo>/` within a
+   minute or two.
+
+The demo re-implements the same category/points rules as `db.py`, but all
+state lives only in your browser tab (refresh = reset) — it does not talk
+to `client_app.py` / `machine_app.py` at all.
+
 ## User flow
 
 1. **Home** (phone) — resident taps "ทิ้งขยะตอนนี้" (throw trash now).
