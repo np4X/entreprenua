@@ -1,8 +1,7 @@
 """Machine app — runs on the PC attached to the smart bin. Same
-routes/templates as the root machine_app.py, but the SQLite file
-backing db.py is synced to and from Google Drive on every request (see
-gdrive_sync.py). Printed QR images in static/qrcodes/ are NOT synced to
-Drive — only the database file is.
+routes/templates as the root machine_app.py, but waste.db lives in
+DRIVE_SYNC_DIR (see db.py) — a folder that Google Drive for desktop
+syncs on its own, no API calls needed from this app.
 """
 import os
 import random
@@ -26,17 +25,6 @@ QR_DIR = os.path.join(app.static_folder, "qrcodes")
 os.makedirs(QR_DIR, exist_ok=True)
 
 MACHINE_ID = "#A-12"
-
-
-@app.before_request
-def pull_db_from_drive():
-    db.sync_from_drive()
-
-
-@app.after_request
-def push_db_to_drive(response):
-    db.sync_to_drive()
-    return response
 
 
 def make_qr_image(code):
@@ -199,7 +187,6 @@ def compute_points(bag):
 
 
 if __name__ == "__main__":
-    db.sync_from_drive()
     db.init_db()
     host = os.environ.get("APP_HOST", "0.0.0.0")
     port = int(os.environ.get("APP_PORT", "5169"))

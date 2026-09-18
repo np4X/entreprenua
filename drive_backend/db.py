@@ -1,18 +1,21 @@
-"""Same schema and points logic as the root db.py, but the SQLite file
-is just a local cache: gdrive_sync downloads it from Google Drive before
-each request and uploads it back after each request (see
-sync_from_drive / sync_to_drive below, wired up in client_app.py /
-machine_app.py). See gdrive_sync.py for the (deliberately dumb)
-caveats.
+"""Same schema and points logic as the root db.py, but waste.db lives
+in DRIVE_SYNC_DIR instead of always sitting next to this file.
+
+Point DRIVE_SYNC_DIR at a folder that Google Drive for desktop (the
+free sync client, not the API) is already syncing on this machine, and
+the database rides along with Drive's normal background sync — no
+Google Cloud project, no service account, no API calls from this app
+at all. If DRIVE_SYNC_DIR isn't set, this just behaves like a plain
+local SQLite app (same fallback as the root db.py).
 """
 import os
 import secrets
 import sqlite3
 import string
 
-import gdrive_sync
-
-DB_PATH = os.path.join(os.path.dirname(__file__), "waste.db")
+DATA_DIR = os.environ.get("DRIVE_SYNC_DIR", os.path.dirname(__file__))
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "waste.db")
 
 CATEGORY_LABELS = {
     "food": "เศษอาหาร",
@@ -37,14 +40,6 @@ REWARDS_SEED = [
     ("Grab ส่วนลดค่าส่ง 50 บาท", "ใช้ได้ภายใน 14 วัน", 300),
     ("Shopee โค้ดส่วนลด 100 บาท", "ขั้นต่ำการสั่งซื้อ 300 บาท", 700),
 ]
-
-
-def sync_from_drive():
-    gdrive_sync.download_db(DB_PATH)
-
-
-def sync_to_drive():
-    gdrive_sync.upload_db(DB_PATH)
 
 
 def get_db():

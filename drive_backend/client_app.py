@@ -1,8 +1,7 @@
 """Client app — runs on the RESIDENT'S PHONE. Same routes/templates as
-the root client_app.py, but the SQLite file backing db.py is synced to
-and from Google Drive on every request (see gdrive_sync.py) instead of
-just living on local disk. Photos uploaded to static/uploads/ are NOT
-synced to Drive — only the database file is.
+the root client_app.py, but waste.db lives in DRIVE_SYNC_DIR (see
+db.py) — a folder that Google Drive for desktop syncs on its own, no
+API calls needed from this app.
 """
 import base64
 import os
@@ -23,17 +22,6 @@ app.secret_key = "dev-secret-change-me"
 
 UPLOAD_DIR = os.path.join(app.static_folder, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-@app.before_request
-def pull_db_from_drive():
-    db.sync_from_drive()
-
-
-@app.after_request
-def push_db_to_drive(response):
-    db.sync_to_drive()
-    return response
 
 
 def current_user():
@@ -308,7 +296,6 @@ def profile():
 
 
 if __name__ == "__main__":
-    db.sync_from_drive()
     db.init_db()
     host = os.environ.get("APP_HOST", "0.0.0.0")
     port = int(os.environ.get("APP_PORT", "5167"))
