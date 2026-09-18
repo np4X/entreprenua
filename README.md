@@ -50,15 +50,15 @@ override the defaults (`0.0.0.0:5069` and `0.0.0.0:5067`).
 ## Live click-through demo (GitHub Pages)
 
 A static, click-through demo of just the resident-facing screens is in
-`docs/` and runs entirely in the browser via
+`client/` and runs entirely in the browser via
 [PyScript](https://pyscript.net/) (Python compiled to WebAssembly) — no
 server, no real database, no real machine involved. It's meant purely to
 show the flow to someone without them installing Python.
 
-**Live at:** https://np4x.github.io/entreprenua/docs/
+**Live at:** https://np4x.github.io/entreprenua/client/
 
-(Pages is configured to deploy from the repo root rather than `/docs`, which
-is why `/docs/` is part of the URL — that also means the root URL,
+(Pages is configured to deploy from the repo root rather than `/client`,
+which is why `/client/` is part of the URL — that also means the root URL,
 https://np4x.github.io/entreprenua/, just shows this README instead.)
 
 The demo re-implements the same category/points rules as `db.py`, but all
