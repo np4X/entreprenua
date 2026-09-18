@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}แยกขยะได้แต้ม{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="phone">
+  <div class="statusbar">
+    <span class="time">{{ now or '9:41' }}</span>
+    <span class="place">{% block statusbar_right %}อาคาร A · ชั้น 12{% endblock %}</span>
+  </div>
+
+  <div class="screen">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">
+          {% for m in messages %}<div class="flash-msg">{{ m }}</div>{% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  {% block nav %}
+  <nav class="bottomnav">
+    <a href="{{ url_for('home') }}" class="{{ 'active' if active_tab == 'home' else '' }}">
+      <span class="icon">⌂</span><span>หน้าแรก</span>
+    </a>
+    <a href="{{ url_for('rewards') }}" class="{{ 'active' if active_tab == 'rewards' else '' }}">
+      <span class="icon">🎁</span><span>แต้ม/Reward</span>
+    </a>
+    <a href="{{ url_for('profile') }}" class="{{ 'active' if active_tab == 'profile' else '' }}">
+      <span class="icon">👤</span><span>โปรไฟล์</span>
+    </a>
+  </nav>
+  {% endblock %}
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

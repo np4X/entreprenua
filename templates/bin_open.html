@@ -1,0 +1,23 @@
+{% extends "base_machine.html" %}
+{% block title %}เครื่องเปิดฝา{% endblock %}
+{% block content %}
+<h1 class="page-title">ฝาเปิดแล้ว โปรดทิ้งถุง</h1>
+
+<div class="bin-illustration">
+  <span class="big">🗑️</span>
+  <span class="big">⬆️</span>
+</div>
+
+<div class="card" style="text-align:center;">
+  <div style="font-weight:700; font-size:16px; margin-bottom:4px;">เครื่องเปิดฝาให้แล้ว</div>
+  <div style="font-size:13px; color:var(--text-muted);">ใส่ถุง {{ bag.code }} ลงในช่องที่เปิดอยู่</div>
+</div>
+
+<div class="hint-card">
+  ฝาจะปิดเองภายใน 10 วินาทีหลังตรวจพบว่าใส่ถุงแล้ว
+</div>
+
+<form method="post" action="{{ url_for('bin_open_done', bag_id=bag.id) }}">
+  <button type="submit" class="btn">ทิ้งเสร็จแล้ว</button>
+</form>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}สแกน QR{% endblock %}
+{% block statusbar_right %}{{ bag.code }}{% endblock %}
+{% block content %}
+<h1 class="page-title">ถ่ายรูป QR บนถุงของคุณ</h1>
+
+<div class="camera-box" id="camera-box">
+  <video id="video" autoplay playsinline style="display:none;"></video>
+  <img id="snapshot" style="display:none;">
+  <div id="cam-placeholder">
+    <div class="placeholder-emoji">▦</div>
+    <div>แตะเพื่อถ่ายรูป QR ที่แปะบนถุง</div>
+  </div>
+</div>
+<canvas id="canvas" style="display:none;"></canvas>
+
+<div id="scan-status" class="hint-card" style="display:none;"></div>
+
+<button type="button" class="btn btn-outline" id="cam-btn">เปิดกล้อง</button>
+<div class="btn-spacer"></div>
+<button type="button" class="btn btn-outline" id="simulate-scan-btn">จำลองสแกน (Demo)</button>
+
+<div class="btn-spacer"></div>
+
+<div class="category-grid" id="category-grid" style="opacity:0.4; pointer-events:none;">
+  <div class="category-btn" data-cat="food">
+    <div class="dot"></div>เศษอาหาร
+  </div>
+  <div class="category-btn" data-cat="recycle">
+    <div class="dot"></div>รีไซเคิล
+  </div>
+  <div class="category-btn" data-cat="general">
+    <div class="dot"></div>ทั่วไป
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('scan_category') }}" id="category-form">
+  <input type="hidden" name="category" id="category-input">
+  <button type="submit" class="btn" id="continue-btn" disabled>ยืนยันประเภทขยะ</button>
+</form>
+{% endblock %}
+{% block nav %}{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/jsQR.js') }}"></script>
+<script>
+const BAG_CODE = {{ bag.code | tojson }};
+const video = document.getElementById('video');
+const snapshot = document.getElementById('snapshot');
+const placeholder = document.getElementById('cam-placeholder');
+const canvas = document.getElementById('canvas');
+const camBtn = document.getElementById('cam-btn');
+const statusBox = document.getElementById('scan-status');
+const grid = document.getElementById('category-grid');
+const continueBtn = document.getElementById('continue-btn');
+const categoryInput = document.getElementById('category-input');
+let stream = null;
+
+function showStatus(msg, ok) {
+  statusBox.style.display = 'block';
+  statusBox.textContent = msg;
+  statusBox.style.borderColor = ok ? '#2f6b4f' : '#b3452f';
+}
+
+function unlockCategoryStep() {
+  grid.style.opacity = 1;
+  grid.style.pointerEvents = 'auto';
+}
+
+async function openCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+    snapshot.style.display = 'none';
+    camBtn.textContent = 'ถ่ายภาพ QR';
+    camBtn.onclick = captureAndDecode;
+  } catch (e) {
+    showStatus('เปิดกล้องไม่ได้ (' + e + ') ลองกด "จำลองสแกน" แทน', false);
+  }
+}
+
+function captureAndDecode() {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+
+  snapshot.src = canvas.toDataURL('image/jpeg', 0.85);
+  snapshot.style.display = 'block';
+  video.style.display = 'none';
+  if (stream) { stream.getTracks().forEach(t => t.stop()); }
+  camBtn.textContent = 'ถ่ายใหม่';
+  camBtn.onclick = openCamera;
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const decoded = jsQR(imageData.data, imageData.width, imageData.height);
+  if (decoded && decoded.data) {
+    verifyCode(decoded.data.trim().toUpperCase());
+  } else {
+    showStatus('❌ ไม่พบ QR ในภาพ ลองถ่ายใหม่ให้เห็น QR ชัดเจน', false);
+  }
+}
+
+camBtn.onclick = openCamera;
+
+async function verifyCode(code) {
+  const res = await fetch("{{ url_for('scan_verify_code') }}", {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({code: code})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showStatus('✅ สแกนสำเร็จ ตรงกับถุงนี้ เลือกประเภทขยะด้านล่าง', true);
+    unlockCategoryStep();
+  } else {
+    showStatus('❌ ' + (data.message || 'รหัสไม่ตรงกัน'), false);
+  }
+}
+
+document.getElementById('simulate-scan-btn').addEventListener('click', () => {
+  verifyCode(BAG_CODE);
+});
+
+document.querySelectorAll('.category-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    categoryInput.value = btn.dataset.cat;
+    continueBtn.disabled = false;
+  });
+});
+</script>
+{% endblock %}

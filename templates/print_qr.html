@@ -1,0 +1,28 @@
+{% extends "base_machine.html" %}
+{% block title %}ปริ้น QR แปะถุง{% endblock %}
+{% block content %}
+<h1 class="page-title">QR พร้อมแล้ว — แปะที่ถุง</h1>
+
+<div class="qr-box">
+  <img src="{{ url_for('static', filename=qr_path) }}" alt="QR code">
+</div>
+
+<div class="code-line">รหัสถุง: <b>{{ bag.code }}</b> · ใช้ได้ครั้งเดียว</div>
+
+<div class="hint-card">
+  🏷️ ดึงสติกเกอร์ QR จากเครื่อง แล้วแปะติดถุงขยะของคุณ ถุงสีอะไรก็ได้<br><br>
+  📱 เมื่อแปะเสร็จแล้ว ให้กด <b>"แปะเสร็จแล้ว ถัดไป"</b> ที่แอปบนมือถือของคุณ — หน้านี้จะกลับไปเองอัตโนมัติ
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function poll() {
+  const res = await fetch("{{ url_for('print_qr_status', bag_id=bag.id) }}");
+  const data = await res.json();
+  if (data.status !== 'created') {
+    window.location.href = "{{ url_for('idle') }}";
+  }
+}
+setInterval(poll, 2000);
+</script>
+{% endblock %}

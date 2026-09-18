@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}ผลตรวจ + แต้ม{% endblock %}
+{% set active_tab = 'profile' %}
+{% block statusbar_right %}{{ bag.code }}{% endblock %}
+{% block content %}
+<h1 class="page-title">กำลังตรวจสอบถุงของคุณ</h1>
+
+<div class="card" id="status-card">
+  <div class="status-row">
+    <div class="icon-badge {{ 'ok' if bag.ai_result == 'match' else 'fail' }}">
+      {{ '✓' if bag.ai_result == 'match' else '!' }}
+    </div>
+    <div>
+      <div class="title">AI ตรวจรูปเบื้องต้น</div>
+      <div class="desc">
+        {% if bag.ai_result == 'match' %}
+          ตรงกับ "{{ category_label }}" ที่เลือกไว้
+        {% else %}
+          รูปอาจไม่ตรงกับ "{{ category_label }}" ที่เลือกไว้ — รอพนักงานตรวจซ้ำ
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="status-row" id="staff-row">
+    <div class="icon-badge pending" id="staff-icon">⏳</div>
+    <div>
+      <div class="title" id="staff-title">พนักงานเก็บขยะยืนยันซ้ำ</div>
+      <div class="desc" id="staff-desc">รอตรวจตอนมารับที่ห้องขยะกลาง</div>
+    </div>
+  </div>
+</div>
+
+<div class="card points-earn" id="points-card" style="{{ '' if bag.points_awarded is not none else 'display:none;' }}">
+  <div class="amount" id="points-amount">
+    {{ ('+' + bag.points_awarded|string) if bag.points_awarded is not none and bag.points_awarded >= 0 else (bag.points_awarded|string if bag.points_awarded is not none else '') }} แต้ม
+  </div>
+  <div class="note" id="points-note">แยกถูกประเภท ได้แต้มเต็ม · แยกผิดจะได้แต้มน้อยลงหรือถูกหักแต้ม</div>
+</div>
+
+<a href="{{ url_for('rewards') }}" class="btn btn-gold">🏆 ดูแต้มสะสมทั้งหมด</a>
+{% endblock %}
+{% block scripts %}
+<script>
+async function poll() {
+  const res = await fetch("{{ url_for('verify_status') }}");
+  const data = await res.json();
+  if (!data.ok) return;
+
+  if (data.status === 'verified' || data.status === 'rejected') {
+    const staffIcon = document.getElementById('staff-icon');
+    const staffTitle = document.getElementById('staff-title');
+    const staffDesc = document.getElementById('staff-desc');
+    const pointsCard = document.getElementById('points-card');
+    const pointsAmount = document.getElementById('points-amount');
+
+    if (data.status === 'verified') {
+      staffIcon.className = 'icon-badge ok';
+      staffIcon.textContent = '✓';
+      staffTitle.textContent = 'พนักงานยืนยันแล้ว';
+      staffDesc.textContent = 'ตรวจสอบผ่าน';
+      pointsAmount.textContent = '+' + data.points_awarded + ' แต้ม';
+    } else {
+      staffIcon.className = 'icon-badge fail';
+      staffIcon.textContent = '✕';
+      staffTitle.textContent = 'พนักงานพบว่าข้อมูลไม่ตรง';
+      staffDesc.textContent = 'ถูกหักแต้มเนื่องจากแยกผิด/ให้ข้อมูลเท็จ';
+      pointsAmount.textContent = data.points_awarded + ' แต้ม';
+    }
+    pointsCard.style.display = 'block';
+    clearInterval(timer);
+  }
+}
+const timer = setInterval(poll, 3000);
+poll();
+</script>
+{% endblock %}

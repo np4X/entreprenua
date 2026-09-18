@@ -1,0 +1,13 @@
+# Runtime data (regenerated automatically, contains real user data)
+waste.db
+static/uploads/
+static/qrcodes/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Logs / local test artifacts
+*.log

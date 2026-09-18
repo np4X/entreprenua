@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staff Dashboard — ตรวจสอบถุงขยะ</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="wide-wrap" style="width:100%; margin:0 auto; padding:24px 16px;">
+  <h1 style="margin-bottom:4px;">🧑‍🔧 Staff Dashboard</h1>
+  <div class="subtitle">ตรวจสอบถุงขยะที่รอยืนยัน และให้/หักแต้มผู้ใช้</div>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash">
+        {% for m in messages %}<div class="flash-msg">{{ m }}</div>{% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <h2>รอตรวจสอบ ({{ pending|length }})</h2>
+  {% if not pending %}
+    <p class="subtitle">ไม่มีถุงที่รอตรวจสอบตอนนี้</p>
+  {% else %}
+  <table class="staff-table">
+    <thead>
+      <tr>
+        <th>รูป</th>
+        <th>รหัสถุง</th>
+        <th>ผู้ใช้</th>
+        <th>ประเภทที่แจ้ง</th>
+        <th>รายละเอียด</th>
+        <th>ผล AI</th>
+        <th>การจัดการ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in pending %}
+      <tr>
+        <td>
+          {% if b.photo_path %}
+            <img src="{{ url_for('static', filename=b.photo_path) }}" class="staff-photo">
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ b.code }}</td>
+        <td>{{ b.user_name }}</td>
+        <td>{{ category_labels.get(b.category, '-') }}</td>
+        <td>{{ b.note or '-' }}</td>
+        <td>
+          <span class="tag {{ b.ai_result }}">
+            {{ 'ตรงกัน' if b.ai_result == 'match' else 'ไม่ตรง' }}
+            ({{ (b.ai_confidence * 100) | round(0) | int }}%)
+          </span>
+        </td>
+        <td class="staff-actions">
+          <form method="post" action="{{ url_for('staff_confirm', bag_id=b.id) }}">
+            <button class="btn" type="submit">✅ ยืนยัน</button>
+          </form>
+          <form method="post" action="{{ url_for('staff_penalize', bag_id=b.id) }}">
+            <button class="btn btn-red" type="submit">🚫 ปรับโทษ</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h2 style="margin-top:28px;">ตรวจล่าสุด</h2>
+  {% if not recent %}
+    <p class="subtitle">ยังไม่มีประวัติ</p>
+  {% else %}
+  <table class="staff-table">
+    <thead>
+      <tr><th>รหัสถุง</th><th>ผู้ใช้</th><th>ประเภท</th><th>ผลลัพธ์</th><th>แต้ม</th></tr>
+    </thead>
+    <tbody>
+      {% for b in recent %}
+      <tr>
+        <td>{{ b.code }}</td>
+        <td>{{ b.user_name }}</td>
+        <td>{{ category_labels.get(b.category, '-') }}</td>
+        <td>{{ 'ยืนยันแล้ว' if b.status == 'verified' else 'ปรับโทษ' }}</td>
+        <td>{{ b.points_awarded }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% set active_tab = 'rewards' %}
+{% block title %}แต้มสะสม{% endblock %}
+{% block statusbar_right %}กระเป๋าแต้ม{% endblock %}
+{% block content %}
+<h1 class="page-title">แต้มสะสมของคุณ</h1>
+
+<div class="card" style="text-align:center;">
+  <div class="points-value" style="justify-content:center;">
+    {{ "{:,}".format(user.points) }} <span class="unit">แต้ม</span>
+  </div>
+</div>
+
+<div class="card">
+  {% for r in rewards %}
+  <form method="post" action="{{ url_for('redeem_reward', reward_id=r.id) }}" class="reward-form">
+    <div class="reward-row">
+      <div class="reward-icon">🎁</div>
+      <div style="flex:1;">
+        <div class="rname">Reward: {{ r.name }}</div>
+        <div class="rdesc">{{ r.description }}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="rcost">{{ "{:,}".format(r.cost) }} แต้ม</div>
+        <button type="submit" class="btn btn-outline" style="padding:6px 10px; font-size:12px; margin-top:6px;"
+          {{ 'disabled' if user.points < r.cost else '' }}>แลก</button>
+      </div>
+    </div>
+  </form>
+  {% endfor %}
+</div>
+
+{% if history %}
+<div class="card">
+  <div class="label" style="margin-bottom:8px;">ประวัติการแลกล่าสุด</div>
+  {% for h in history %}
+    <div style="font-size:13px; padding:4px 0;">🎟️ {{ h.name }} — {{ h.redeemed_at }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

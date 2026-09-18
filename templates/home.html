@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% set active_tab = 'home' %}
+{% block title %}หน้าแรก{% endblock %}
+{% block content %}
+<h1 class="page-title">สวัสดี {{ user.name }} 👋</h1>
+
+<div class="card">
+  <div class="label">แต้มสะสมของคุณ</div>
+  <div class="points-row">
+    <div class="points-value">{{ "{:,}".format(user.points) }} <span class="unit">แต้ม</span></div>
+    <div class="emoji">🎁</div>
+  </div>
+</div>
+
+<div class="card last-activity">
+  <div class="label">ครั้งล่าสุดที่ทิ้งขยะ</div>
+  {% if last_bag %}
+    <div class="headline">
+      เมื่อ {{ last_bag.created_at }} · {{ category_labels.get(last_bag.category, '-') }} · ได้ {{ last_bag.points_awarded }} แต้ม
+    </div>
+  {% else %}
+    <div class="headline">ยังไม่มีประวัติการทิ้งขยะ</div>
+  {% endif %}
+</div>
+
+<form method="post" action="{{ url_for('start_bag') }}">
+  <button type="submit" class="btn">🗑️ ทิ้งขยะตอนนี้</button>
+</form>
+{% endblock %}

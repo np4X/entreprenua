@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}ถ่ายรูป + ยืนยัน{% endblock %}
+{% block statusbar_right %}{{ category_label }}{% endblock %}
+{% block content %}
+<h1 class="page-title">ถ่ายรูปขยะในถุง</h1>
+
+<div class="card" style="display:flex; align-items:center; gap:10px;">
+  <div style="width:14px;height:14px;border-radius:50%;background:var(--green);"></div>
+  <div>
+    <div style="font-weight:600;">{{ category_label }} · {{ bag.code }}</div>
+    <div style="font-size:12px;color:var(--text-muted);">ต้องถ่ายรูปก่อนทิ้งทุกครั้ง</div>
+  </div>
+</div>
+
+<div class="camera-box" id="camera-box">
+  <video id="video" autoplay playsinline style="display:none;"></video>
+  <img id="snapshot" style="display:none;">
+  <div id="cam-placeholder">
+    <div class="placeholder-emoji">📷</div>
+    <div>แตะเพื่อถ่ายรูปขยะในถุง (บังคับ)</div>
+  </div>
+</div>
+<canvas id="canvas" style="display:none;"></canvas>
+
+<button type="button" class="btn btn-outline" id="cam-btn">เปิดกล้อง</button>
+<div class="btn-spacer"></div>
+<label class="btn btn-outline" style="text-align:center; display:block;">
+  หรืออัปโหลดรูปจากเครื่อง
+  <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none;">
+</label>
+
+<div class="btn-spacer"></div>
+
+<textarea class="note-input" id="note-input"
+  placeholder="รายละเอียดเพิ่มเติม (ถ้ามี) เช่น แยกถุงพลาสติก/กระดาษ ล้างสะอาดแล้ว — ยิ่งละเอียด ยิ่งได้แต้มเพิ่ม"></textarea>
+
+<button type="button" class="btn" id="confirm-btn" disabled>ยืนยันและส่งตรวจ</button>
+{% endblock %}
+{% block nav %}{% endblock %}
+{% block scripts %}
+<script>
+const video = document.getElementById('video');
+const snapshot = document.getElementById('snapshot');
+const placeholder = document.getElementById('cam-placeholder');
+const canvas = document.getElementById('canvas');
+const camBtn = document.getElementById('cam-btn');
+const confirmBtn = document.getElementById('confirm-btn');
+const fileInput = document.getElementById('file-input');
+let imageData = null;
+let stream = null;
+
+async function openCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+    snapshot.style.display = 'none';
+    camBtn.textContent = 'ถ่ายภาพ';
+    camBtn.onclick = capturePhoto;
+  } catch (e) {
+    alert('เปิดกล้องไม่ได้: ' + e + '\nลองใช้ปุ่ม "อัปโหลดรูปจากเครื่อง" แทน');
+  }
+}
+
+function capturePhoto() {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  imageData = canvas.toDataURL('image/jpeg', 0.85);
+  snapshot.src = imageData;
+  snapshot.style.display = 'block';
+  video.style.display = 'none';
+  if (stream) { stream.getTracks().forEach(t => t.stop()); }
+  confirmBtn.disabled = false;
+  camBtn.textContent = 'ถ่ายใหม่';
+  camBtn.onclick = openCamera;
+}
+
+camBtn.onclick = openCamera;
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    imageData = reader.result;
+    snapshot.src = imageData;
+    snapshot.style.display = 'block';
+    placeholder.style.display = 'none';
+    video.style.display = 'none';
+    confirmBtn.disabled = false;
+  };
+  reader.readAsDataURL(file);
+});
+
+confirmBtn.addEventListener('click', async () => {
+  if (!imageData) return;
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'กำลังส่ง...';
+  const res = await fetch("{{ url_for('photo_upload') }}", {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      image_data: imageData,
+      note: document.getElementById('note-input').value
+    })
+  });
+  const data = await res.json();
+  if (data.ok) {
+    window.location.href = data.redirect;
+  } else {
+    alert(data.message || 'เกิดข้อผิดพลาด');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'ยืนยันและส่งตรวจ';
+  }
+});
+</script>
+{% endblock %}

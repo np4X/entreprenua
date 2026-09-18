@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}แปะ QR แปะถุง{% endblock %}
+{% block statusbar_right %}{{ bag.code }}{% endblock %}
+{% block content %}
+<h1 class="page-title">ไปที่เครื่องคัดแยกขยะ</h1>
+
+<div class="bin-illustration">
+  <span class="big">🏷️</span>
+</div>
+
+<div class="hint-card">
+  ไปที่เครื่อง ดู QR ที่ปรากฏบนหน้าจอเครื่อง ดึงสติกเกอร์ไปแปะติดถุงขยะของคุณ<br><br>
+  เมื่อแปะเสร็จแล้ว ให้กดปุ่มด้านล่างนี้เพื่อไปขั้นตอนถัดไป
+</div>
+
+<form method="post" action="{{ url_for('waiting_print_confirm') }}">
+  <button type="submit" class="btn">แปะเสร็จแล้ว ถัดไป</button>
+</form>
+{% endblock %}
+{% block nav %}{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}รอเครื่องเปิดฝา{% endblock %}
+{% block statusbar_right %}{{ bag.code }}{% endblock %}
+{% block content %}
+<h1 class="page-title">ไปทิ้งถุงที่เครื่อง</h1>
+
+<div class="bin-illustration">
+  <span class="big">🗑️</span>
+</div>
+
+<div class="hint-card" style="text-align:center;">
+  ไปที่เครื่องคัดแยกขยะ รอฝาเปิด แล้วใส่ถุง {{ bag.code }} ลงในช่อง — หน้านี้จะไปต่อเองเมื่อเครื่องยืนยันว่าทิ้งเสร็จ
+</div>
+{% endblock %}
+{% block nav %}{% endblock %}
+{% block scripts %}
+<script>
+async function poll() {
+  const res = await fetch("{{ url_for('waiting_bin_status') }}");
+  const data = await res.json();
+  if (data.ok && data.status !== 'photographed') {
+    window.location.href = "{{ url_for('verify') }}";
+  }
+}
+setInterval(poll, 2000);
+poll();
+</script>
+{% endblock %}

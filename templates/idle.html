@@ -1,0 +1,18 @@
+{% extends "base_machine.html" %}
+{% block title %}เครื่องว่าง{% endblock %}
+{% block content %}
+<h1 class="page-title">พร้อมใช้งาน</h1>
+
+<div class="bin-illustration">
+  <span class="big">🗑️</span>
+</div>
+
+<div class="hint-card" style="text-align:center;">
+  รอผู้ใช้กด "ทิ้งขยะตอนนี้" จากแอปในมือถือ...
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+setTimeout(() => window.location.reload(), 3000);
+</script>
+{% endblock %}
