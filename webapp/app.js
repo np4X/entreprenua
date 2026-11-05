@@ -5,7 +5,7 @@
   'use strict';
 
   /* ---------- config & data ---------- */
-  const KEY = 'recycle-condo-v2';
+  const KEY = 'recycle-condo-v3';
   const CO2_PER_KG = 1.5; // placeholder estimate, kg CO2 saved per kg recycled
   const MAX_KG = 200;
 
@@ -76,17 +76,15 @@
   const fmt = (n, d = 2) => Number(n).toLocaleString('en-US', { maximumFractionDigits: d });
   const points = (kg, typeId) => Math.round(kg * db.prices[typeId] * db.rate);
   const earned = (room) => db.entries.filter((e) => e.room === room).reduce((a, e) => a + e.points, 0);
-  const spent = (room) => db.redemptions.filter((r) => r.room === room && r.status === 'done').reduce((a, r) => a + r.cost, 0);
-  const reserved = (room) => db.redemptions.filter((r) => r.room === room && r.status === 'pending').reduce((a, r) => a + r.cost, 0);
+  const spent = (room) => db.redemptions.filter((r) => r.room === room).reduce((a, r) => a + r.cost, 0);
   const balance = (room) => earned(room) - spent(room);
-  const available = (room) => balance(room) - reserved(room);
   const kgTotal = (room) => db.entries.filter((e) => e.room === room).reduce((a, e) => a + e.kg, 0);
   const isToday = (ts) => new Date(ts).toDateString() === new Date().toDateString();
   const time = (ts) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const dateShort = (ts) => new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
   function newCode() {
-    const used = new Set(db.redemptions.filter((r) => r.status === 'pending').map((r) => r.code));
+    const used = new Set(db.redemptions.filter((r) => !r.usedAt).map((r) => r.code));
     let c;
     do { c = String(Math.floor(100000 + Math.random() * 900000)); } while (used.has(c));
     return c;
@@ -150,7 +148,7 @@
     if (ev.key !== KEY) return;
     db = load();
     const cur = stack[stack.length - 1];
-    if (cur && (cur.name === 'b-pending' || cur.name === 'b-home' || cur.name === 'a-home')) render();
+    if (cur && (cur.name === 'b-voucher' || cur.name === 'b-home' || cur.name === 'a-home')) render();
   });
 
   /* ---------- shared pieces ---------- */
@@ -201,7 +199,7 @@
         h('div', {}, h('b', {}, today.length), h('span', {}, 'entries today')),
         h('div', {}, h('b', {}, fmt(kg, 1)), h('span', {}, 'kg today'))),
       h('button', { class: 'btn', type: 'button', onclick: () => { draft = {}; go('a-room'); } }, 'Log waste'),
-      h('button', { class: 'btn ghost', type: 'button', onclick: () => go('a-redeem') }, 'Confirm a redemption'),
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => go('a-redeem') }, 'Check a voucher'),
       h('button', { class: 'btn ghost', type: 'button', onclick: () => go('a-prices') }, 'Price list'),
       h('h2', {}, 'Today\'s entries'),
       today.length
@@ -347,43 +345,42 @@
       h('button', { class: 'btn', type: 'button', onclick: onSave }, 'Save prices'));
   }
 
-  /* ---------- A8 confirm redemption ---------- */
+  /* ---------- A8 check voucher ---------- */
   function aRedeem() {
     const out = h('div', {});
     const input = h('input', { id: 'code', inputmode: 'numeric', maxlength: '6', autocomplete: 'off', placeholder: '6-digit code' });
     const find = (ev) => {
       ev.preventDefault();
       const code = input.value.trim();
-      const r = db.redemptions.find((x) => x.code === code && x.status === 'pending');
+      const r = db.redemptions.find((x) => x.code === code && !x.usedAt);
       if (!r) {
-        out.replaceChildren(h('p', { class: 'err', role: 'alert' }, 'No open request has this code. Ask the resident to check it, or to request again.'));
+        const used = db.redemptions.find((x) => x.code === code);
+        out.replaceChildren(h('p', { class: 'err', role: 'alert' }, used
+          ? `This voucher was already used at ${time(used.usedAt)} on ${dateShort(used.usedAt)}.`
+          : 'No voucher has this code. Ask the resident to check it.'));
         return;
       }
-      const bal = balance(r.room);
-      const enough = bal >= r.cost;
-      out.replaceChildren(...[
-        h('h2', {}, 'Request'),
+      out.replaceChildren(
+        h('h2', {}, 'Voucher'),
         h('dl', { class: 'kv' },
           h('dt', {}, 'Room'), h('dd', {}, r.room),
           h('dt', {}, 'Reward'), h('dd', {}, r.name),
-          h('dt', {}, 'Cost'), h('dd', {}, `${r.cost} pts`),
-          h('dt', {}, 'Room balance'), h('dd', {}, `${bal} pts`)),
-        enough ? null : h('p', { class: 'err', role: 'alert' }, 'The room does not have enough points for this reward.'),
+          h('dt', {}, 'Cost'), h('dd', {}, `${r.cost} pts, already deducted`),
+          h('dt', {}, 'Issued'), h('dd', {}, `${dateShort(r.ts)} ${time(r.ts)}`)),
         h('button', {
-          class: 'btn', type: 'button', disabled: !enough,
+          class: 'btn', type: 'button',
           onclick: () => {
-            r.status = 'done'; r.doneAt = Date.now(); save();
-            toast(`Confirmed. ${r.cost} pts deducted from ${r.room}.`);
+            r.usedAt = Date.now(); save();
+            toast('Voucher marked as used.');
             setStack([['a-home']]);
           },
-        }, r.kind === 'merch' ? 'Confirm and hand over' : 'Confirm and deduct points'),
-      ].filter(Boolean));
+        }, r.kind === 'merch' ? 'Hand over and mark used' : 'Mark as used'));
     };
     return h('div', {},
-      head('A8', 'Confirm redemption', 'Enter the code the resident shows you.'),
+      head('A8', 'Check voucher', 'Enter the code the resident shows you. Points were already deducted when they redeemed.'),
       h('form', { onsubmit: find },
-        h('label', { for: 'code' }, 'Resident code'), input,
-        h('button', { class: 'btn', type: 'submit' }, 'Find request')),
+        h('label', { for: 'code' }, 'Voucher code'), input,
+        h('button', { class: 'btn', type: 'submit' }, 'Find voucher')),
       out);
   }
 
@@ -391,22 +388,21 @@
   function bHome() {
     const room = session.id;
     const mine = db.entries.filter((e) => e.room === room).sort((a, b) => b.ts - a.ts);
-    const open = db.redemptions.filter((r) => r.room === room && r.status === 'pending');
+    const open = db.redemptions.filter((r) => r.room === room && !r.usedAt).sort((a, b) => b.ts - a.ts);
     const kg = kgTotal(room);
     return h('div', {},
       head('B1', `Unit ${room}`),
       h('p', { class: 'soft', style: 'margin:0' }, 'Points balance'),
       h('p', { class: 'big' }, balance(room)),
-      open.length ? h('p', { class: 'soft' }, `${reserved(room)} pts are held for open requests.`) : null,
       h('div', { class: 'pair' },
         h('div', {}, h('b', {}, fmt(kg, 1)), h('span', {}, 'kg recycled')),
         h('div', {}, h('b', {}, fmt(kg * CO2_PER_KG, 1)), h('span', {}, 'kg CO₂ saved, estimate'))),
       h('button', { class: 'btn', type: 'button', onclick: () => go('b-rewards') }, 'Redeem points'),
       open.length ? [
-        h('h2', {}, 'Open requests'),
+        h('h2', {}, 'My vouchers'),
         h('ul', { class: 'list' }, open.map((r) => h('li', {}, h('button', {
-          class: 'row', type: 'button', onclick: () => go('b-pending', { id: r.id }),
-        }, h('span', { class: 'l' }, r.name, h('small', {}, `Code ${r.code}`)), h('span', { class: 'r' }, `${r.cost} pts`))))),
+          class: 'row', type: 'button', onclick: () => go('b-voucher', { id: r.id }),
+        }, h('span', { class: 'l' }, r.name, h('small', {}, `Code ${r.code}`)), h('span', { class: 'r' }, 'Show ›'))))),
       ] : null,
       h('h2', {}, 'Recent entries'),
       mine.length
@@ -422,7 +418,7 @@
     const link = (title, sub, name) => h('li', {}, h('button', { class: 'row', type: 'button', onclick: () => go(name) },
       h('span', { class: 'l' }, title, h('small', {}, sub)), h('span', { class: 'r' }, '›')));
     return h('div', {},
-      head('B2', 'Rewards', `${available(room)} points available`),
+      head('B2', 'Rewards', `${balance(room)} points available`),
       h('ul', { class: 'list' },
         link('Vending discount', 'Get a code for the condo vending machine', 'b-vending'),
         link('Merch', 'Keychain or recycle mascot figure', 'b-merch')));
@@ -430,70 +426,75 @@
 
   /* ---------- B3 / B4 reward lists ---------- */
   function rewardList(kind, id, title, sub) {
-    const room = session.id;
-    const avail = available(room);
+    const bal = balance(session.id);
     const items = db.rewards.filter((r) => r.kind === kind);
     return h('div', {},
       head(id, title, sub),
-      h('p', { class: 'soft' }, `${avail} points available`),
+      h('p', { class: 'soft' }, `${bal} points available`),
       h('ul', { class: 'list' }, items.map((r) => h('li', {}, h('button', {
-        class: 'row', type: 'button', disabled: avail < r.cost,
-        onclick: () => {
-          const rec = { id: uid(), room, kind, name: r.name, cost: r.cost, code: newCode(), status: 'pending', ts: Date.now() };
-          db.redemptions.push(rec); save();
-          stack.pop(); // replace the list so Back returns to Rewards
-          go('b-pending', { id: rec.id });
-        },
-      }, h('span', { class: 'l' }, r.name, h('small', {}, avail < r.cost ? `Needs ${r.cost - avail} more points` : 'Tap to get a code')),
+        class: 'row', type: 'button', disabled: bal < r.cost,
+        onclick: () => go('b-confirm', { rewardId: r.id }),
+      }, h('span', { class: 'l' }, r.name, h('small', {}, bal < r.cost ? `Needs ${r.cost - bal} more points` : 'Tap to redeem')),
       h('span', { class: 'r' }, `${r.cost} pts`, h('br'), h('span', { class: 'mark' }, 'placeholder')))))));
   }
-  const bVending = () => rewardList('vending', 'B3', 'Vending discount', 'Points are held now and deducted when the code is used.');
-  const bMerch = () => rewardList('merch', 'B4', 'Merch', 'Staff hand it over at the office.');
+  const bVending = () => rewardList('vending', 'B3', 'Vending discount', 'Points are deducted as soon as you confirm.');
+  const bMerch = () => rewardList('merch', 'B4', 'Merch', 'You get a code to show at the office.');
 
-  /* ---------- B5 / B6 code + claim ---------- */
-  function bPending({ id }) {
-    const r = db.redemptions.find((x) => x.id === id);
-    if (!r) return h('div', {}, head('B5', 'Request not found'), h('button', { class: 'btn', type: 'button', onclick: () => setStack([['b-home']]) }, 'Home'));
-    const isMerch = r.kind === 'merch';
-    const check = () => {
-      const cur = db.redemptions.find((x) => x.id === id);
-      if (cur && cur.status === 'done') setStack([['b-home'], ['b-balance', { id }]]);
+  /* ---------- confirm before spending ---------- */
+  function bConfirm({ rewardId }) {
+    const room = session.id;
+    const r = db.rewards.find((x) => x.id === rewardId);
+    const bal = balance(room);
+    const ok = r && bal >= r.cost;
+    const spend = () => {
+      db = load(); // pick up any change made in another tab
+      if (balance(room) < r.cost) { toast('Not enough points.'); setStack([['b-home']]); return; }
+      const rec = { id: uid(), room, kind: r.kind, name: r.name, cost: r.cost, code: newCode(), ts: Date.now() };
+      db.redemptions.push(rec); save();
+      setStack([['b-home'], ['b-voucher', { id: rec.id }]]);
     };
-    check();
-    pollTimer = setInterval(() => { db = load(); check(); }, 2000);
+    return h('div', {},
+      head('B3/B4', 'Confirm', 'Points are deducted right away.'),
+      r ? h('dl', { class: 'kv' },
+        h('dt', {}, 'Reward'), h('dd', {}, r.name),
+        h('dt', {}, 'Cost'), h('dd', {}, `${r.cost} pts`),
+        h('dt', {}, 'Balance now'), h('dd', {}, `${bal} pts`),
+        h('dt', {}, 'Balance after'), h('dd', {}, h('b', {}, `${bal - r.cost} pts`))) : h('p', { class: 'err' }, 'This reward is no longer available.'),
+      h('button', { class: 'btn', type: 'button', disabled: !ok, onclick: spend }, `Redeem for ${r ? r.cost : 0} points`),
+      h('button', { class: 'btn ghost', type: 'button', onclick: back }, 'Not now'));
+  }
+
+  /* ---------- B5 / B6 voucher ---------- */
+  function bVoucher({ id }) {
+    const r = db.redemptions.find((x) => x.id === id);
+    if (!r) return h('div', {}, head('B5', 'Voucher not found'), h('button', { class: 'btn', type: 'button', onclick: () => setStack([['b-home']]) }, 'Home'));
+    const isMerch = r.kind === 'merch';
+    const used = !!r.usedAt;
     return h('div', {},
       head(isMerch ? 'B6' : 'B5', isMerch ? 'Claim at office' : 'Show code'),
       h('p', {}, r.name),
-      h('div', { class: 'code', 'aria-label': `Code ${r.code.split('').join(' ')}` }, r.code),
-      h('p', { class: 'soft' }, isMerch
-        ? 'Show this code at the juristic office. Staff confirm it and hand over the item.'
-        : 'Use this code at the vending machine, or give it to staff. Points are deducted when it is confirmed.'),
-      h('p', { class: 'soft' }, `${r.cost} points are held until then. This page updates by itself once it is confirmed.`),
-      h('button', {
+      h('div', { class: 'code', 'aria-label': `Code ${r.code.split('').join(' ')}`, style: used ? 'opacity:.4;text-decoration:line-through' : null }, r.code),
+      h('p', { class: used ? 'mark' : 'soft' }, used
+        ? `Used on ${dateShort(r.usedAt)} at ${time(r.usedAt)}.`
+        : isMerch
+          ? 'Show this code at the juristic office to collect your item.'
+          : 'Use this code at the vending machine, or show it to staff.'),
+      h('p', { class: 'soft' }, `${r.cost} points were deducted. Balance now ${balance(r.room)} pts.`),
+      used ? null : h('button', {
         class: 'btn ghost', type: 'button',
         onclick: () => {
           db.redemptions = db.redemptions.filter((x) => x.id !== id); save();
-          toast('Request cancelled. Points released.');
+          toast('Voucher cancelled. Points refunded.');
           setStack([['b-home']]);
         },
-      }, 'Cancel this request'));
-  }
-
-  /* ---------- B7 balance updated ---------- */
-  function bBalance({ id }) {
-    const r = db.redemptions.find((x) => x.id === id);
-    return h('div', {},
-      head('B7', 'Balance updated'),
-      r ? h('p', {}, `${r.name} confirmed. ${r.cost} points deducted.`) : null,
-      h('p', { class: 'soft', style: 'margin:0' }, 'New balance'),
-      h('p', { class: 'big' }, balance(session.id)),
+      }, 'Cancel and refund points'),
       h('button', { class: 'btn', type: 'button', onclick: () => setStack([['b-home']]) }, 'Back to home'));
   }
 
   const SCREENS = {
     login, 'a-home': aHome, 'a-room': aRoom, 'a-type': aType, 'a-weight': aWeight, 'a-review': aReview,
     'a-saved': aSaved, 'a-prices': aPrices, 'a-redeem': aRedeem,
-    'b-home': bHome, 'b-rewards': bRewards, 'b-vending': bVending, 'b-merch': bMerch, 'b-pending': bPending, 'b-balance': bBalance,
+    'b-home': bHome, 'b-rewards': bRewards, 'b-vending': bVending, 'b-merch': bMerch, 'b-confirm': bConfirm, 'b-voucher': bVoucher,
   };
 
   /* ---------- boot ---------- */
