@@ -84,7 +84,7 @@
   const dateShort = (ts) => new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
   function newCode() {
-    const used = new Set(db.redemptions.filter((r) => !r.usedAt).map((r) => r.code));
+    const used = new Set(db.redemptions.map((r) => r.code));
     let c;
     do { c = String(Math.floor(100000 + Math.random() * 900000)); } while (used.has(c));
     return c;
@@ -199,7 +199,6 @@
         h('div', {}, h('b', {}, today.length), h('span', {}, 'entries today')),
         h('div', {}, h('b', {}, fmt(kg, 1)), h('span', {}, 'kg today'))),
       h('button', { class: 'btn', type: 'button', onclick: () => { draft = {}; go('a-room'); } }, 'Log waste'),
-      h('button', { class: 'btn ghost', type: 'button', onclick: () => go('a-redeem') }, 'Check a voucher'),
       h('button', { class: 'btn ghost', type: 'button', onclick: () => go('a-prices') }, 'Price list'),
       h('h2', {}, 'Today\'s entries'),
       today.length
@@ -345,50 +344,11 @@
       h('button', { class: 'btn', type: 'button', onclick: onSave }, 'Save prices'));
   }
 
-  /* ---------- A8 check voucher ---------- */
-  function aRedeem() {
-    const out = h('div', {});
-    const input = h('input', { id: 'code', inputmode: 'numeric', maxlength: '6', autocomplete: 'off', placeholder: '6-digit code' });
-    const find = (ev) => {
-      ev.preventDefault();
-      const code = input.value.trim();
-      const r = db.redemptions.find((x) => x.code === code && !x.usedAt);
-      if (!r) {
-        const used = db.redemptions.find((x) => x.code === code);
-        out.replaceChildren(h('p', { class: 'err', role: 'alert' }, used
-          ? `This voucher was already used at ${time(used.usedAt)} on ${dateShort(used.usedAt)}.`
-          : 'No voucher has this code. Ask the resident to check it.'));
-        return;
-      }
-      out.replaceChildren(
-        h('h2', {}, 'Voucher'),
-        h('dl', { class: 'kv' },
-          h('dt', {}, 'Room'), h('dd', {}, r.room),
-          h('dt', {}, 'Reward'), h('dd', {}, r.name),
-          h('dt', {}, 'Cost'), h('dd', {}, `${r.cost} pts, already deducted`),
-          h('dt', {}, 'Issued'), h('dd', {}, `${dateShort(r.ts)} ${time(r.ts)}`)),
-        h('button', {
-          class: 'btn', type: 'button',
-          onclick: () => {
-            r.usedAt = Date.now(); save();
-            toast('Voucher marked as used.');
-            setStack([['a-home']]);
-          },
-        }, r.kind === 'merch' ? 'Hand over and mark used' : 'Mark as used'));
-    };
-    return h('div', {},
-      head('A8', 'Check voucher', 'Enter the code the resident shows you. Points were already deducted when they redeemed.'),
-      h('form', { onsubmit: find },
-        h('label', { for: 'code' }, 'Voucher code'), input,
-        h('button', { class: 'btn', type: 'submit' }, 'Find voucher')),
-      out);
-  }
-
   /* ---------- B1 resident home ---------- */
   function bHome() {
     const room = session.id;
     const mine = db.entries.filter((e) => e.room === room).sort((a, b) => b.ts - a.ts);
-    const open = db.redemptions.filter((r) => r.room === room && !r.usedAt).sort((a, b) => b.ts - a.ts);
+    const open = db.redemptions.filter((r) => r.room === room).sort((a, b) => b.ts - a.ts).slice(0, 3);
     const kg = kgTotal(room);
     return h('div', {},
       head('B1', `Unit ${room}`),
@@ -399,7 +359,7 @@
         h('div', {}, h('b', {}, fmt(kg * CO2_PER_KG, 1)), h('span', {}, 'kg CO₂ saved, estimate'))),
       h('button', { class: 'btn', type: 'button', onclick: () => go('b-rewards') }, 'Redeem points'),
       open.length ? [
-        h('h2', {}, 'My vouchers'),
+        h('h2', {}, 'Recent vouchers'),
         h('ul', { class: 'list' }, open.map((r) => h('li', {}, h('button', {
           class: 'row', type: 'button', onclick: () => go('b-voucher', { id: r.id }),
         }, h('span', { class: 'l' }, r.name, h('small', {}, `Code ${r.code}`)), h('span', { class: 'r' }, 'Show ›'))))),
@@ -469,34 +429,45 @@
     const r = db.redemptions.find((x) => x.id === id);
     if (!r) return h('div', {}, head('B5', 'Voucher not found'), h('button', { class: 'btn', type: 'button', onclick: () => setStack([['b-home']]) }, 'Home'));
     const isMerch = r.kind === 'merch';
-    const used = !!r.usedAt;
     return h('div', {},
       head(isMerch ? 'B6' : 'B5', isMerch ? 'Claim at office' : 'Show code'),
       h('p', {}, r.name),
-      h('div', { class: 'code', 'aria-label': `Code ${r.code.split('').join(' ')}`, style: used ? 'opacity:.4;text-decoration:line-through' : null }, r.code),
-      h('p', { class: used ? 'mark' : 'soft' }, used
-        ? `Used on ${dateShort(r.usedAt)} at ${time(r.usedAt)}.`
-        : isMerch
-          ? 'Show this code at the juristic office to collect your item.'
-          : 'Use this code at the vending machine, or show it to staff.'),
-      h('p', { class: 'soft' }, `${r.cost} points were deducted. Balance now ${balance(r.room)} pts.`),
-      used ? null : h('button', {
-        class: 'btn ghost', type: 'button',
-        onclick: () => {
-          db.redemptions = db.redemptions.filter((x) => x.id !== id); save();
-          toast('Voucher cancelled. Points refunded.');
-          setStack([['b-home']]);
-        },
-      }, 'Cancel and refund points'),
+      h('div', { class: 'code', 'aria-label': `Code ${r.code.split('').join(' ')}` }, r.code),
+      h('p', { class: 'soft' }, isMerch
+        ? 'Show this code at the juristic office to collect your item.'
+        : 'Enter this code at the vending machine.'),
+      h('p', { class: 'soft' }, `${r.cost} points were deducted. Balance now ${balance(r.room)} pts. Points are not refunded, so keep this code.`),
       h('button', { class: 'btn', type: 'button', onclick: () => setStack([['b-home']]) }, 'Back to home'));
   }
 
   const SCREENS = {
     login, 'a-home': aHome, 'a-room': aRoom, 'a-type': aType, 'a-weight': aWeight, 'a-review': aReview,
-    'a-saved': aSaved, 'a-prices': aPrices, 'a-redeem': aRedeem,
+    'a-saved': aSaved, 'a-prices': aPrices,
     'b-home': bHome, 'b-rewards': bRewards, 'b-vending': bVending, 'b-merch': bMerch, 'b-confirm': bConfirm, 'b-voucher': bVoucher,
   };
 
+  /* ---------- ad banner ---------- */
+  // Placeholder ads. Swap this list for a real ad network or sponsor feed later.
+  const ADS = [
+    { name: 'Your brand here', line: 'Reach every resident of this condo' },
+    { name: 'Local café', line: '10% off for residents with this app' },
+    { name: 'Cleaning service', line: 'Book a deep clean for your unit' },
+  ];
+  function startAds() {
+    const box = document.getElementById('ad');
+    if (!box) return;
+    let i = 0;
+    const tag = h('span', { class: 'adtag' }, 'Ad');
+    const name = h('b', {});
+    const line = h('span', { class: 'soft' });
+    const ph = h('span', { class: 'mark adph' }, 'placeholder');
+    box.replaceChildren(tag, h('div', { class: 'adtxt' }, name, line), ph);
+    const show = () => { name.textContent = ADS[i].name; line.textContent = ADS[i].line; i = (i + 1) % ADS.length; };
+    show();
+    setInterval(show, 8000);
+  }
+
   /* ---------- boot ---------- */
   setStack([[session ? homeName() : 'login']]);
+  startAds();
 })();
